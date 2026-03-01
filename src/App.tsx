@@ -47,6 +47,15 @@ const createNumberedIcon = (number: string | number) => {
   });
 };
 
+const createSpotIcon = () => {
+  return L.divIcon({
+    html: `<div style="display: flex; align-items: center; justify-content: center; background-color: #f43f5e; color: white; border-radius: 9999px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2); width: 100%; height: 100%; font-size: 12px;">📍</div>`,
+    className: 'tourist-spot-icon',
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+  });
+};
+
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -59,6 +68,7 @@ interface Stop {
   description: string;
   coords: [number, number];
   type: 'hotel' | 'food' | 'sight' | 'event' | 'transport';
+  image?: string;
 }
 
 interface DayPlan {
@@ -84,14 +94,16 @@ const ITINERARY: DayPlan[] = [
         time: "18:30",
         description: "Un paseo relajante por el pulmón de Madrid, visitando el Palacio de Cristal.",
         coords: [40.4153, -3.6839],
-        type: 'sight'
+        type: 'sight',
+        image: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Palacio_de_Cristal.jpg/330px-Palacio_de_Cristal.jpg"
       },
       {
         name: "Cena en Gran Vía",
         time: "20:00",
         description: "Cena rápida y energética antes del gran show.",
         coords: [40.4200, -3.7030],
-        type: 'food'
+        type: 'food',
+        image: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/79/MADRID_100206_UDCI_019.jpg/330px-MADRID_100206_UDCI_019.jpg"
       },
       {
         name: "Musical El Rey León",
@@ -214,6 +226,25 @@ const ITINERARY: DayPlan[] = [
   }
 ];
 
+const TOURIST_SPOTS = [
+  { name: "Museo del Prado", coords: [40.4138, -3.6921] as [number, number], description: "Una de las pinacotecas más importantes del mundo.", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Museo_del_Prado_2016_%2825185969599%29.jpg/330px-Museo_del_Prado_2016_%2825185969599%29.jpg" },
+  { name: "Museo Reina Sofía", coords: [40.4080, -3.6943] as [number, number], description: "Arte del siglo XX y contemporáneo, hogar del Guernica.", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Museo_Nacional_Centro_de_Arte_Reina_Sof%C3%ADa_logo.svg/langes-330px-Museo_Nacional_Centro_de_Arte_Reina_Sof%C3%ADa_logo.svg.png" },
+  { name: "Parque del Retiro", coords: [40.4153, -3.6845] as [number, number], description: "El pulmón verde de Madrid, con su lago y el Palacio de Cristal.", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Palacio_de_Cristal.jpg/330px-Palacio_de_Cristal.jpg" },
+  { name: "Palacio Real de Madrid", coords: [40.4180, -3.7143] as [number, number], description: "Residencia oficial de la Familia Real española.", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/Palacio_Real_de_Madrid_Julio_2016_%28cropped%29.jpg/330px-Palacio_Real_de_Madrid_Julio_2016_%28cropped%29.jpg" },
+  { name: "Puerta de Alcalá", coords: [40.4200, -3.6888] as [number, number], description: "Una de las antiguas puertas monumentales de acceso a Madrid.", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Puerta_de_Alcal%C3%A1_%28Madrid%29_05.jpg/330px-Puerta_de_Alcal%C3%A1_%28Madrid%29_05.jpg" },
+  { name: "Gran Vía", coords: [40.4200, -3.7022] as [number, number], description: "La calle más famosa y animada de Madrid.", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/79/MADRID_100206_UDCI_019.jpg/330px-MADRID_100206_UDCI_019.jpg" },
+  { name: "Cibeles", coords: [40.4193, -3.6931] as [number, number], description: "Fuente monumental, símbolo de la ciudad y lugar de celebración.", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c9/Fuente_de_Cibeles_-_Dec_2024.jpg/330px-Fuente_de_Cibeles_-_Dec_2024.jpg" },
+  { name: "Plaza Mayor", coords: [40.4154, -3.7074] as [number, number], description: "Gran plaza porticada en el corazón del Madrid de los Austrias.", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Plaza_Mayor_de_Madrid_06.jpg/330px-Plaza_Mayor_de_Madrid_06.jpg" },
+  { name: "Puerta del Sol", coords: [40.4168, -3.7038] as [number, number], description: "Kilómetro Cero de España y centro neurálgico la capital.", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ed/MADRID_100206_UDCI_023.jpg/330px-MADRID_100206_UDCI_023.jpg" },
+  { name: "Mercado de San Miguel", coords: [40.4154, -3.7089] as [number, number], description: "Mercado histórico convertido en templo gastronómico.", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/Mercado_de_San_Miguel_2025.jpg/330px-Mercado_de_San_Miguel_2025.jpg" },
+  { name: "Catedral de la Almudena", coords: [40.4156, -3.7146] as [number, number], description: "La iglesia principal de la diócesis de Madrid.", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Almudena_2022_-_overview.jpg/330px-Almudena_2022_-_overview.jpg" },
+  { name: "Plaza de España", coords: [40.4234, -3.7122] as [number, number], description: "Gran plaza presidida por el monumento a Cervantes.", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fb/Plaza_de_Espa%C3%B1a_de_Madrid_-_02.jpg/330px-Plaza_de_Espa%C3%B1a_de_Madrid_-_02.jpg" },
+  { name: "Templo de Debod", coords: [40.4240, -3.7177] as [number, number], description: "Templo egipcio original salvado de Asuán, ideal al atardecer.", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a6/Templo_de_Debod_in_Madrid.jpg/330px-Templo_de_Debod_in_Madrid.jpg" },
+  { name: "Azotea del Círculo de Bellas Artes", coords: [40.4186, -3.6963] as [number, number], description: "Una de las mejores vistas panorámicas de Madrid.", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/C%C3%ADrculo_de_Bellas_Artes_%28Madrid%29_06.jpg/330px-C%C3%ADrculo_de_Bellas_Artes_%28Madrid%29_06.jpg" },
+  { name: "El Rastro (Latina)", coords: [40.4097, -3.7075] as [number, number], description: "El mercadillo más castizo y famoso, abierto los domingos.", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Rastro_de_Madrid_%28Espa%C3%B1a%29_1.jpg/330px-Rastro_de_Madrid_%28Espa%C3%B1a%29_1.jpg" },
+  { name: "Matadero Madrid", coords: [40.3923, -3.6976] as [number, number], description: "Antiguo matadero reconvertido en un inmenso centro cultural.", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Casa_Terneras-Matadero-Legazpi.JPG/330px-Casa_Terneras-Matadero-Legazpi.JPG" }
+];
+
 // Component to fly to new bounds when day changes
 function MapController({ coords }: { coords: [number, number][] }) {
   const map = useMap();
@@ -221,13 +252,24 @@ function MapController({ coords }: { coords: [number, number][] }) {
     if (coords.length > 0) {
       const bounds = L.latLngBounds(coords);
       map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+
+      // Fix for grey tiles when container resizes due to varying list heights
+      const resizeObserver = new ResizeObserver(() => {
+        map.invalidateSize();
+      });
+
+      const container = map.getContainer();
+      resizeObserver.observe(container);
+
+      return () => {
+        resizeObserver.disconnect();
+      };
     }
   }, [coords, map]);
   return null;
 }
 
-const OPENROUTER_API_KEY = process.env.GEMINI_API_KEY || "";
-const MODEL_ID = "qwen/qwen3.5-flash-02-23";
+
 
 export default function App() {
   const [activeDay, setActiveDay] = useState(0);
@@ -259,41 +301,27 @@ export default function App() {
     setIsTyping(true);
 
     try {
-      const systemInstruction = `Eres un asistente experto, conciso y muy amigable sobre el viaje del usuario a Madrid.
-      Tus RESPUESTAS DEBEN SER BREVES y directas, sin enrollarte.
-      Debes responder siempre en el idioma en el que te hablen (Castellano o Catalán).
-      
-      Aquí tienes EL ITINERARIO COMPLETO Y EXACTO que va a realizar el usuario, día a día y con horarios: 
-      ${JSON.stringify(ITINERARY)}
-      
-      Contexto adicional importante:
-      - El usuario se aloja todo el viaje en el Hotel Agumar.
-      - Llega el 13 de marzo a las 17h desde Galapagar.
-      - Tiene el musical El Rey León el 13 a las 21h.
-      - Se va el 15 a las 20h en avión.
-      - NO quiere ir a museos bajo ningún concepto.
-      
-      Limítate a responder dudas sobre este plan o dar consejos puntuales de comida/transporte que encajen perfectamente en estos huecos de tiempo.`;
-
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "http://localhost:3000",
-          "X-Title": "Madrid Explorer"
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          model: MODEL_ID,
-          messages: [
-            { role: "system", content: systemInstruction },
-            ...currentMessages.map(m => ({
-              role: m.role,
-              content: m.content
-            }))
-          ]
+          password: passwordInput,
+          messages: currentMessages.map(m => ({
+            role: m.role,
+            content: m.content
+          }))
         })
       });
+
+      if (response.status === 401) {
+        setIsAuthorized(false);
+        setPasswordInput("");
+        setMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: "⚠️ Contraseña incorrecta. Se ha cerrado la sesión." }]);
+        setIsTyping(false);
+        return;
+      }
 
       const data = await response.json();
       const content = data.choices?.[0]?.message?.content || "Lo siento, no pude procesar tu pregunta.";
@@ -471,6 +499,28 @@ export default function App() {
               />
               <MapController coords={polylineCoords} />
 
+              {/* Tourist Spots (Background) */}
+              {TOURIST_SPOTS.map((spot, idx) => (
+                <Marker
+                  key={`spot-${idx}`}
+                  position={spot.coords}
+                  icon={createSpotIcon()}
+                  zIndexOffset={-10}
+                >
+                  <Popup>
+                    <div className="w-48 flex flex-col gap-2">
+                      <img src={spot.image} alt={spot.name} className="w-full h-24 object-cover object-center rounded-md" />
+                      <div>
+                        <p className="font-bold text-sm text-rose-600 leading-tight mb-1">{spot.name}</p>
+                        <p className="text-xs text-gray-600 leading-snug mb-2">{spot.description}</p>
+                        <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Punto Turístico</p>
+                      </div>
+                    </div>
+                  </Popup>
+                </Marker>
+              ))}
+
+              {/* Itinerary Route (Foreground) */}
               {groupedStops.map((group, idx) => {
                 const label = group.stops.map(s => s.index + 1).join(', ');
                 return (
@@ -480,11 +530,17 @@ export default function App() {
                     icon={createNumberedIcon(label)}
                   >
                     <Popup>
-                      <div className="p-1">
+                      <div className="w-48 max-h-64 overflow-y-auto pr-1">
                         {group.stops.map((s, i) => (
-                          <div key={i} className={i > 0 ? "mt-2 pt-2 border-t border-gray-200" : ""}>
-                            <p className="font-bold text-sm mb-1">{s.index + 1}. {s.stop.name}</p>
-                            <p className="text-xs text-gray-600">{s.stop.time}</p>
+                          <div key={i} className={cn("flex flex-col gap-2", i > 0 ? "mt-3 pt-3 border-t border-gray-200" : "")}>
+                            {s.stop.image && (
+                              <img src={s.stop.image} alt={s.stop.name} className="w-full h-24 object-cover object-center rounded-md" />
+                            )}
+                            <div>
+                              <p className="font-bold text-sm leading-tight mb-1">{s.index + 1}. {s.stop.name}</p>
+                              <p className="text-xs text-emerald-600 font-bold mb-1">{s.stop.time}</p>
+                              <p className="text-xs text-gray-600 leading-snug">{s.stop.description}</p>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -498,19 +554,6 @@ export default function App() {
                 pathOptions={{ color: '#10b981', weight: 4, opacity: 0.6, dashArray: '10, 10' }}
               />
             </MapContainer>
-
-            {/* Map Overlay Info */}
-            <div className="absolute bottom-6 left-6 right-6 z-[1000] pointer-events-none">
-              <div className="bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-black/5 shadow-2xl max-w-sm pointer-events-auto">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
-                    <MapPin size={16} />
-                  </div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-black/40">Ruta del Día</p>
-                </div>
-                <p className="text-sm text-black/70 italic">Visualizando {currentDay.stops.length} paradas estratégicas en Madrid.</p>
-              </div>
-            </div>
           </div>
         </div>
       </main>
@@ -569,8 +612,8 @@ export default function App() {
                       value={passwordInput}
                       onChange={(e) => setPasswordInput(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          if (passwordInput === ((import.meta as any).env.VITE_CHAT_PASSWORD || "madrid2024")) setIsAuthorized(true);
+                        if (e.key === 'Enter' && passwordInput.trim()) {
+                          setIsAuthorized(true);
                         }
                       }}
                       placeholder="Contraseña de acceso..."
@@ -578,7 +621,7 @@ export default function App() {
                     />
                     <button
                       onClick={() => {
-                        if (passwordInput === ((import.meta as any).env.VITE_CHAT_PASSWORD || "madrid2024")) setIsAuthorized(true);
+                        if (passwordInput.trim()) setIsAuthorized(true);
                       }}
                       disabled={!passwordInput}
                       className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition-all font-semibold"
