@@ -232,6 +232,8 @@ const MODEL_ID = "qwen/qwen3.5-flash-02-23";
 export default function App() {
   const [activeDay, setActiveDay] = useState(0);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
   const [chatInput, setChatInput] = useState("");
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant', content: string }[]>([
     { role: 'assistant', content: "¡Hola! Soy tu asistente de viaje. Puedes preguntarme cualquier cosa sobre tu itinerario estático por Madrid. ¿En qué puedo ayudarte?" }
@@ -530,65 +532,104 @@ export default function App() {
                   <h2 className="font-serif text-xl">Asistente de Viaje</h2>
                 </div>
                 <div className="flex justify-end gap-2">
-                  <button
-                    onClick={handleNewConversation}
-                    className="p-2 hover:bg-white/10 rounded-full transition-colors flex items-center justify-center text-sm font-semibold gap-1"
-                    title="Nueva conversación"
-                  >
-                    Nuevo
-                  </button>
+                  {isAuthorized && (
+                    <button
+                      onClick={handleNewConversation}
+                      className="p-2 hover:bg-white/10 rounded-full transition-colors flex items-center justify-center text-sm font-semibold gap-1"
+                      title="Nueva conversación"
+                    >
+                      Nuevo
+                    </button>
+                  )}
                   <button onClick={() => setIsChatOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
                     <X size={20} />
                   </button>
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#FDFCFB]">
-                {messages.map((msg, i) => (
-                  <div key={i} className={cn(
-                    "flex flex-col max-w-[85%]",
-                    msg.role === 'user' ? "ml-auto items-end" : "mr-auto items-start"
-                  )}>
-                    <div className={cn(
-                      "p-4 rounded-2xl text-sm leading-relaxed shadow-sm",
-                      msg.role === 'user'
-                        ? "bg-black text-white rounded-tr-none [&_p]:mb-0"
-                        : "bg-white border border-black/5 text-black/80 rounded-tl-none [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:ml-5 [&_ul]:mb-3 [&_ul:last-child]:mb-0 [&_ol]:list-decimal [&_ol]:ml-5 [&_ol]:mb-3 [&_ol:last-child]:mb-0 [&_li]:mb-1"
-                    )}>
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
-                    </div>
+              {!isAuthorized ? (
+                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-[#FDFCFB]">
+                  <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                    <Info size={32} />
                   </div>
-                ))}
-                {isTyping && (
-                  <div className="flex gap-2 p-4 bg-white border border-black/5 rounded-2xl rounded-tl-none w-fit shadow-sm">
-                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" />
-                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce [animation-delay:0.2s]" />
-                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce [animation-delay:0.4s]" />
+                  <h3 className="font-serif text-2xl mb-2">Acceso Privado</h3>
+                  <p className="text-black/60 text-sm mb-8 leading-relaxed">
+                    El uso de la Inteligencia Artificial conlleva costes de API. Por favor, introduce la contraseña para habilitar el asistente automático.
+                  </p>
+                  <div className="w-full relative">
+                    <input
+                      type="password"
+                      value={passwordInput}
+                      onChange={(e) => setPasswordInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          if (passwordInput === ((import.meta as any).env.VITE_CHAT_PASSWORD || "madrid2024")) setIsAuthorized(true);
+                        }
+                      }}
+                      placeholder="Contraseña de acceso..."
+                      className="w-full pl-4 pr-12 py-3 bg-white border border-black/10 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all shadow-sm"
+                    />
+                    <button
+                      onClick={() => {
+                        if (passwordInput === ((import.meta as any).env.VITE_CHAT_PASSWORD || "madrid2024")) setIsAuthorized(true);
+                      }}
+                      disabled={!passwordInput}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition-all font-semibold"
+                    >
+                      Entrar
+                    </button>
                   </div>
-                )}
-                <div ref={chatEndRef} />
-              </div>
-
-              <div className="p-6 border-t border-black/5 bg-white">
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                    placeholder="Pregunta sobre tu viaje..."
-                    className="w-full pl-4 pr-12 py-3 bg-black/5 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
-                  />
-                  <button
-                    onClick={handleSendMessage}
-                    disabled={!chatInput.trim() || isTyping}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition-all"
-                  >
-                    <Send size={16} />
-                  </button>
                 </div>
-                <p className="text-[10px] text-center mt-4 text-black/30 uppercase tracking-widest font-bold">Potenciado por Gemini AI</p>
-              </div>
+              ) : (
+                <>
+                  <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#FDFCFB]">
+                    {messages.map((msg, i) => (
+                      <div key={i} className={cn(
+                        "flex flex-col max-w-[85%]",
+                        msg.role === 'user' ? "ml-auto items-end" : "mr-auto items-start"
+                      )}>
+                        <div className={cn(
+                          "p-4 rounded-2xl text-sm leading-relaxed shadow-sm",
+                          msg.role === 'user'
+                            ? "bg-black text-white rounded-tr-none [&_p]:mb-0"
+                            : "bg-white border border-black/5 text-black/80 rounded-tl-none [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:ml-5 [&_ul]:mb-3 [&_ul:last-child]:mb-0 [&_ol]:list-decimal [&_ol]:ml-5 [&_ol]:mb-3 [&_ol:last-child]:mb-0 [&_li]:mb-1"
+                        )}>
+                          <ReactMarkdown>{msg.content}</ReactMarkdown>
+                        </div>
+                      </div>
+                    ))}
+                    {isTyping && (
+                      <div className="flex gap-2 p-4 bg-white border border-black/5 rounded-2xl rounded-tl-none w-fit shadow-sm">
+                        <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" />
+                        <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce [animation-delay:0.2s]" />
+                        <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce [animation-delay:0.4s]" />
+                      </div>
+                    )}
+                    <div ref={chatEndRef} />
+                  </div>
+
+                  <div className="p-6 border-t border-black/5 bg-white">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                        placeholder="Pregunta sobre tu viaje..."
+                        className="w-full pl-4 pr-12 py-3 bg-black/5 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
+                      />
+                      <button
+                        onClick={handleSendMessage}
+                        disabled={!chatInput.trim() || isTyping}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition-all"
+                      >
+                        <Send size={16} />
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-center mt-4 text-black/30 uppercase tracking-widest font-bold">Potenciado por Gemini AI (OpenRouter)</p>
+                  </div>
+                </>
+              )}
             </motion.div>
           </>
         )}
