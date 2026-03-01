@@ -281,7 +281,35 @@ export default function App() {
     { role: 'assistant', content: "¡Hola! Soy tu asistente de viaje. Puedes preguntarme cualquier cosa sobre tu itinerario estático por Madrid. ¿En qué puedo ayudarte?" }
   ]);
   const [isTyping, setIsTyping] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const handleVerifyPassword = async () => {
+    if (!passwordInput.trim()) return;
+    setIsVerifying(true);
+    setAuthError("");
+
+    try {
+      const response = await fetch("/api/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: passwordInput })
+      });
+
+      if (response.status === 401) {
+        setAuthError("Contraseña incorrecta");
+      } else if (response.ok) {
+        setIsAuthorized(true);
+      } else {
+        setAuthError("Error en el servidor");
+      }
+    } catch (error) {
+      setAuthError("Error de conexión");
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -612,23 +640,33 @@ export default function App() {
                       value={passwordInput}
                       onChange={(e) => setPasswordInput(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' && passwordInput.trim()) {
-                          setIsAuthorized(true);
+                        if (e.key === 'Enter' && passwordInput.trim() && !isVerifying) {
+                          handleVerifyPassword();
                         }
                       }}
                       placeholder="Contraseña de acceso..."
-                      className="w-full pl-4 pr-12 py-3 bg-white border border-black/10 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all shadow-sm"
+                      className={cn(
+                        "w-full pl-4 pr-12 py-3 bg-white border rounded-2xl text-sm focus:outline-none focus:ring-2 transition-all shadow-sm",
+                        authError ? "border-red-500 focus:ring-red-500/50 focus:border-red-500" : "border-black/10 focus:ring-emerald-500/50 focus:border-emerald-500"
+                      )}
                     />
                     <button
-                      onClick={() => {
-                        if (passwordInput.trim()) setIsAuthorized(true);
-                      }}
-                      disabled={!passwordInput}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition-all font-semibold"
+                      onClick={handleVerifyPassword}
+                      disabled={!passwordInput || isVerifying}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition-all font-semibold flex items-center justify-center min-w-[70px]"
                     >
-                      Entrar
+                      {isVerifying ? <Loader2 size={16} className="animate-spin" /> : "Entrar"}
                     </button>
                   </div>
+                  {authError && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-red-500 text-xs mt-2 text-left w-full pl-2 font-medium flex items-center gap-1"
+                    >
+                      ⚠️ {authError}
+                    </motion.p>
+                  )}
                 </div>
               ) : (
                 <>
