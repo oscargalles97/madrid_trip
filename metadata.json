@@ -1,0 +1,5 @@
+{
+  "name": "Madrid Explorer: 3-Day Trip Planner",
+  "description": "An interactive itinerary for a first-time visit to Madrid, featuring real-time location grounding and a curated schedule.",
+  "requestFramePermissions": ["geolocation"]
+}
