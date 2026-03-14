@@ -15,7 +15,10 @@ import {
   Clock,
   Utensils,
   ShoppingBag,
-  Camera
+  Camera,
+  Ticket,
+  Map,
+  CloudSun
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
@@ -69,6 +72,7 @@ interface Stop {
   coords: [number, number];
   type: 'hotel' | 'food' | 'sight' | 'event' | 'transport';
   image?: string;
+  bookingLink?: string;
 }
 
 interface DayPlan {
@@ -110,7 +114,8 @@ const ITINERARY: DayPlan[] = [
         time: "21:00",
         description: "El espectáculo más icónico de la Gran Vía en el Teatro Lope de Vega.",
         coords: [40.4221, -3.7074],
-        type: 'event'
+        type: 'event',
+        bookingLink: "https://www.elreyleon.es/"
       }
     ]
   },
@@ -227,10 +232,10 @@ const ITINERARY: DayPlan[] = [
 ];
 
 const TOURIST_SPOTS = [
-  { name: "Museo del Prado", coords: [40.4138, -3.6921] as [number, number], description: "Una de las pinacotecas más importantes del mundo.", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Museo_del_Prado_2016_%2825185969599%29.jpg/330px-Museo_del_Prado_2016_%2825185969599%29.jpg" },
-  { name: "Museo Reina Sofía", coords: [40.4080, -3.6943] as [number, number], description: "Arte del siglo XX y contemporáneo, hogar del Guernica.", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Museo_Nacional_Centro_de_Arte_Reina_Sof%C3%ADa_logo.svg/langes-330px-Museo_Nacional_Centro_de_Arte_Reina_Sof%C3%ADa_logo.svg.png" },
+  { name: "Museo del Prado", coords: [40.4138, -3.6921] as [number, number], description: "Una de las pinacotecas más importantes del mundo.", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Museo_del_Prado_2016_%2825185969599%29.jpg/330px-Museo_del_Prado_2016_%2825185969599%29.jpg", bookingLink: "https://www.museodelprado.es/en/tickets/" },
+  { name: "Museo Reina Sofía", coords: [40.4080, -3.6943] as [number, number], description: "Arte del siglo XX y contemporáneo, hogar del Guernica.", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Museo_Nacional_Centro_de_Arte_Reina_Sof%C3%ADa_logo.svg/langes-330px-Museo_Nacional_Centro_de_Arte_Reina_Sof%C3%ADa_logo.svg.png", bookingLink: "https://entradas.museoreinasofia.es/" },
   { name: "Parque del Retiro", coords: [40.4153, -3.6845] as [number, number], description: "El pulmón verde de Madrid, con su lago y el Palacio de Cristal.", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Palacio_de_Cristal.jpg/330px-Palacio_de_Cristal.jpg" },
-  { name: "Palacio Real de Madrid", coords: [40.4180, -3.7143] as [number, number], description: "Residencia oficial de la Familia Real española.", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/Palacio_Real_de_Madrid_Julio_2016_%28cropped%29.jpg/330px-Palacio_Real_de_Madrid_Julio_2016_%28cropped%29.jpg" },
+  { name: "Palacio Real de Madrid", coords: [40.4180, -3.7143] as [number, number], description: "Residencia oficial de la Familia Real española.", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/Palacio_Real_de_Madrid_Julio_2016_%28cropped%29.jpg/330px-Palacio_Real_de_Madrid_Julio_2016_%28cropped%29.jpg", bookingLink: "https://tickets.patrimonionacional.es/es" },
   { name: "Puerta de Alcalá", coords: [40.4200, -3.6888] as [number, number], description: "Una de las antiguas puertas monumentales de acceso a Madrid.", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Puerta_de_Alcal%C3%A1_%28Madrid%29_05.jpg/330px-Puerta_de_Alcal%C3%A1_%28Madrid%29_05.jpg" },
   { name: "Gran Vía", coords: [40.4200, -3.7022] as [number, number], description: "La calle más famosa y animada de Madrid.", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/79/MADRID_100206_UDCI_019.jpg/330px-MADRID_100206_UDCI_019.jpg" },
   { name: "Cibeles", coords: [40.4193, -3.6931] as [number, number], description: "Fuente monumental, símbolo de la ciudad y lugar de celebración.", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c9/Fuente_de_Cibeles_-_Dec_2024.jpg/330px-Fuente_de_Cibeles_-_Dec_2024.jpg" },
@@ -269,7 +274,36 @@ function MapController({ coords }: { coords: [number, number][] }) {
   return null;
 }
 
-
+const WeatherWidget = () => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay: 0.4 }}
+    className="bg-white/80 backdrop-blur-md rounded-2xl p-4 shadow-lg border border-white/20 flex gap-4 mt-6 text-black/90 w-fit"
+  >
+    <div className="flex flex-col items-center justify-center pr-4 border-r border-black/10">
+      <CloudSun size={24} className="text-amber-500 mb-1" />
+      <span className="text-[10px] font-bold uppercase tracking-wider">Pronóstico</span>
+    </div>
+    <div className="flex gap-4">
+      <div className="flex flex-col items-center">
+        <span className="text-[10px] uppercase text-black/50 font-bold mb-1">Jue 13</span>
+        <CloudSun size={18} className="text-amber-500 mb-1" />
+        <span className="text-sm font-semibold">18°<span className="text-black/40 text-xs font-normal">/8°</span></span>
+      </div>
+      <div className="flex flex-col items-center">
+        <span className="text-[10px] uppercase text-black/50 font-bold mb-1">Vie 14</span>
+        <CloudSun size={18} className="text-amber-500 mb-1" />
+        <span className="text-sm font-semibold">19°<span className="text-black/40 text-xs font-normal">/9°</span></span>
+      </div>
+      <div className="flex flex-col items-center">
+        <span className="text-[10px] uppercase text-black/50 font-bold mb-1">Sáb 15</span>
+        <CloudSun size={18} className="text-amber-500 mb-1" />
+        <span className="text-sm font-semibold">21°<span className="text-black/40 text-xs font-normal">/10°</span></span>
+      </div>
+    </div>
+  </motion.div>
+);
 
 export default function App() {
   const [activeDay, setActiveDay] = useState(0);
@@ -427,6 +461,7 @@ export default function App() {
             >
               Tu guía personalizada para descubrir la magia de la capital española, desde el Retiro hasta la Gran Vía.
             </motion.p>
+            <WeatherWidget />
           </div>
 
           <motion.button
@@ -505,6 +540,31 @@ export default function App() {
                       <span className="text-xs font-mono bg-black/5 px-2 py-1 rounded-lg text-black/60">{stop.time}</span>
                     </div>
                     <p className="text-sm text-black/60 leading-relaxed">{stop.description}</p>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {idx > 0 && (
+                        <a
+                          href={`https://www.google.com/maps/dir/?api=1&origin=${currentDay.stops[idx - 1].coords[0]},${currentDay.stops[idx - 1].coords[1]}&destination=${stop.coords[0]},${stop.coords[1]}&travelmode=transit`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-black/5 hover:bg-black/10 text-black/70 text-xs font-medium rounded-xl transition-colors"
+                        >
+                          <Navigation size={12} />
+                          Ver ruta desde anterior
+                        </a>
+                      )}
+                      {stop.bookingLink && (
+                        <a
+                          href={stop.bookingLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-medium rounded-xl transition-colors shadow-sm shadow-rose-500/20"
+                        >
+                          <Ticket size={12} />
+                          Comprar Entradas
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -541,7 +601,29 @@ export default function App() {
                       <div>
                         <p className="font-bold text-sm text-rose-600 leading-tight mb-1">{spot.name}</p>
                         <p className="text-xs text-gray-600 leading-snug mb-2">{spot.description}</p>
-                        <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Punto Turístico</p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Punto Turístico</p>
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${spot.coords[0]},${spot.coords[1]}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-black/5 text-black p-1 rounded-md hover:bg-black/10 transition-colors"
+                            title="Ver en Google Maps"
+                          >
+                            <MapPin size={12} />
+                          </a>
+                        </div>
+                        {spot.bookingLink && (
+                          <a
+                            href={spot.bookingLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-2 inline-flex items-center justify-center w-full gap-1.5 px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-[10px] uppercase tracking-wider font-bold rounded-xl transition-colors shadow-sm"
+                          >
+                            <Ticket size={12} />
+                            Comprar Entradas
+                          </a>
+                        )}
                       </div>
                     </div>
                   </Popup>
@@ -568,6 +650,17 @@ export default function App() {
                               <p className="font-bold text-sm leading-tight mb-1">{s.index + 1}. {s.stop.name}</p>
                               <p className="text-xs text-emerald-600 font-bold mb-1">{s.stop.time}</p>
                               <p className="text-xs text-gray-600 leading-snug">{s.stop.description}</p>
+                              {s.stop.bookingLink && (
+                                <a
+                                  href={s.stop.bookingLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="mt-2 inline-flex items-center justify-center w-full gap-1.5 px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-[10px] uppercase tracking-wider font-bold rounded-xl transition-colors shadow-sm"
+                                >
+                                  <Ticket size={12} />
+                                  Entradas
+                                </a>
+                              )}
                             </div>
                           </div>
                         ))}
