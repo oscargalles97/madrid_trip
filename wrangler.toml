@@ -1,0 +1,9 @@
+name = "trip-planner"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-03-14"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "trip-planner-db"
+database_id = "90bba592-2a99-4222-931e-96932a0cab03"
+preview_database_id = "90bba592-2a99-4222-931e-96932a0cab03"
