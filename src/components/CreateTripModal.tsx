@@ -1,16 +1,19 @@
 import {AnimatePresence, motion} from 'motion/react';
-import {Loader2, Plus, WandSparkles, X} from 'lucide-react';
-import {useEffect, useMemo, useRef, useState} from 'react';
-import type {CreateTripInput, TripIntensity} from '../types';
+import {Loader2, MapPin, Minus, Plus, Search, WandSparkles, X} from 'lucide-react';
+import {useEffect, useMemo, useState} from 'react';
+import type {CreateTripInput, PlaceSuggestion, TripIntensity} from '../types';
 
 const initialForm: CreateTripInput = {
   destination: '',
   countryOrRegion: '',
   startDate: '',
   endDate: '',
-  travelersSummary: '',
+  travelerCount: 2,
+  travelersSummary: '2 viajeros',
   interests: '',
   intensity: 'balanced',
+  additionalContext: '',
+  addLodgingLater: true,
 };
 
 const suggestedInterests = [
@@ -41,16 +44,22 @@ function formatLongDate(value: string) {
   });
 }
 
+function formatTravelerSummary(count: number) {
+  return `${count} ${count === 1 ? 'viajero' : 'viajeros'}`;
+}
+
 export function CreateTripModal({
   isOpen,
   isGenerating,
   statusMessage,
+  password,
   onClose,
   onGenerate,
 }: {
   isOpen: boolean;
   isGenerating: boolean;
   statusMessage: string;
+  password: string;
   onClose: () => void;
   onGenerate: (input: CreateTripInput) => Promise<void>;
 }) {
@@ -58,9 +67,13 @@ export function CreateTripModal({
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [customInterest, setCustomInterest] = useState('');
   const [error, setError] = useState('');
-  const endDateInputRef = useRef<HTMLInputElement>(null);
+  const [lodgingQuery, setLodgingQuery] = useState('');
+  const [lodgingSuggestions, setLodgingSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [lodgingSearchError, setLodgingSearchError] = useState('');
+  const [isSearchingLodging, setIsSearchingLodging] = useState(false);
+  const [isLoadingLodging, setIsLoadingLodging] = useState(false);
 
-  const updateField = (field: keyof CreateTripInput, value: string) => {
+  const updateField = <K extends keyof CreateTripInput>(field: K, value: CreateTripInput[K]) => {
     setForm((prev) => ({...prev, [field]: value}));
   };
 
@@ -74,13 +87,61 @@ export function CreateTripModal({
   }, [selectedInterests]);
 
   useEffect(() => {
+    setForm((prev) => ({
+      ...prev,
+      travelersSummary: formatTravelerSummary(prev.travelerCount),
+    }));
+  }, [form.travelerCount]);
+
+  useEffect(() => {
     if (!isOpen) {
       setForm(initialForm);
       setSelectedInterests([]);
       setCustomInterest('');
       setError('');
+      setLodgingQuery('');
+      setLodgingSuggestions([]);
+      setLodgingSearchError('');
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const term = lodgingQuery.trim();
+    if (term.length < 2 || form.addLodgingLater === false && term === form.lodgingName) {
+      setLodgingSuggestions([]);
+      setLodgingSearchError('');
+      return;
+    }
+
+    const timeout = window.setTimeout(async () => {
+      setIsSearchingLodging(true);
+      setLodgingSearchError('');
+
+      try {
+        const response = await fetch('/api/places', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'x-app-password': password},
+          body: JSON.stringify({action: 'autocomplete', query: term}),
+        });
+
+        if (!response.ok) {
+          throw new Error('Lodging autocomplete request failed');
+        }
+
+        const data = await response.json();
+        setLodgingSuggestions(data.suggestions || []);
+      } catch {
+        setLodgingSuggestions([]);
+        setLodgingSearchError('No se pudieron cargar sugerencias para el alojamiento.');
+      } finally {
+        setIsSearchingLodging(false);
+      }
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [form.addLodgingLater, form.lodgingName, isOpen, lodgingQuery, password]);
 
   const toggleInterest = (interest: string) => {
     setSelectedInterests((current) =>
@@ -97,19 +158,50 @@ export function CreateTripModal({
     setCustomInterest('');
   };
 
+  const handleSelectLodging = async (suggestion: PlaceSuggestion) => {
+    setIsLoadingLodging(true);
+    setLodgingSearchError('');
+
+    try {
+      const response = await fetch('/api/places', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'x-app-password': password},
+        body: JSON.stringify({action: 'details', placeId: suggestion.placeId}),
+      });
+
+      if (!response.ok) {
+        throw new Error('Lodging details request failed');
+      }
+
+      const data = await response.json();
+      const place = data.place;
+
+      setForm((prev) => ({
+        ...prev,
+        lodgingName: place.name || suggestion.mainText,
+        lodgingAddress: place.description || suggestion.secondaryText || '',
+        lodgingLat: String(place.lat ?? ''),
+        lodgingLng: String(place.lng ?? ''),
+        lodgingPlaceId: place.placeId || suggestion.placeId,
+        lodgingImage: place.image || '',
+        lodgingGoogleMapsUri: place.googleMapsUri || '',
+        addLodgingLater: false,
+      }));
+      setLodgingQuery(place.name || suggestion.mainText);
+      setLodgingSuggestions([]);
+    } catch {
+      setLodgingSearchError('No se pudieron cargar los datos del alojamiento.');
+    } finally {
+      setIsLoadingLodging(false);
+    }
+  };
+
   const handleStartDateChange = (value: string) => {
     setForm((prev) => ({
       ...prev,
       startDate: value,
-      endDate: !prev.endDate || prev.endDate < value ? value : prev.endDate,
+      endDate: prev.endDate && prev.endDate < value ? '' : prev.endDate,
     }));
-
-    window.setTimeout(() => {
-      const input = endDateInputRef.current;
-      if (!input) return;
-      input.focus();
-      input.showPicker?.();
-    }, 60);
   };
 
   const handleSubmit = async () => {
@@ -120,10 +212,16 @@ export function CreateTripModal({
 
     setError('');
     try {
-      await onGenerate({...form, interests: selectedInterests.join(', ')});
+      await onGenerate({
+        ...form,
+        travelersSummary: formatTravelerSummary(form.travelerCount),
+        interests: selectedInterests.join(', '),
+        addLodgingLater: form.addLodgingLater ?? !form.lodgingName,
+      });
       setForm(initialForm);
       setSelectedInterests([]);
       setCustomInterest('');
+      setLodgingQuery('');
     } catch (error) {
       setError(error instanceof Error ? error.message : 'No se pudo generar el viaje');
     }
@@ -144,9 +242,9 @@ export function CreateTripModal({
             initial={{opacity: 0, y: 20}}
             animate={{opacity: 1, y: 0}}
             exit={{opacity: 0, y: 20}}
-            className="fixed inset-x-6 top-10 z-[1310] mx-auto max-w-2xl rounded-xl border border-black/10 bg-white p-6 shadow-xl"
+            className="fixed inset-x-4 inset-y-4 z-[1310] mx-auto flex max-w-4xl flex-col overflow-hidden rounded-xl border border-black/10 bg-white shadow-xl sm:inset-x-6 sm:inset-y-6"
           >
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start justify-between gap-4 border-b border-black/10 px-6 py-5">
               <div>
                 <h2 className="text-2xl font-semibold">Crear viaje</h2>
                 <p className="mt-1 text-sm text-black/55">
@@ -158,16 +256,17 @@ export function CreateTripModal({
               </button>
             </div>
 
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <label className="grid gap-1 text-sm">
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="grid gap-1 text-sm">
                 <span className="text-black/60">Destino</span>
                 <input value={form.destination} onChange={(event) => updateField('destination', event.target.value)} className="rounded-lg border border-black/10 px-3 py-3 outline-none focus:border-black" />
-              </label>
-              <label className="grid gap-1 text-sm">
+                </label>
+                <label className="grid gap-1 text-sm">
                 <span className="text-black/60">País o región</span>
                 <input value={form.countryOrRegion} onChange={(event) => updateField('countryOrRegion', event.target.value)} className="rounded-lg border border-black/10 px-3 py-3 outline-none focus:border-black" />
-              </label>
-              <label className="grid gap-1 text-sm">
+                </label>
+                <label className="grid gap-1 text-sm">
                 <span className="text-black/60">Fecha de inicio</span>
                 <input
                   type="date"
@@ -175,11 +274,10 @@ export function CreateTripModal({
                   onChange={(event) => handleStartDateChange(event.target.value)}
                   className="rounded-lg border border-black/10 px-3 py-3 outline-none focus:border-black"
                 />
-              </label>
-              <label className="grid gap-1 text-sm">
+                </label>
+                <label className="grid gap-1 text-sm">
                 <span className="text-black/60">Fecha de fin</span>
                 <input
-                  ref={endDateInputRef}
                   type="date"
                   min={form.startDate || undefined}
                   value={form.endDate}
@@ -187,12 +285,34 @@ export function CreateTripModal({
                   className="rounded-lg border border-black/10 px-3 py-3 outline-none focus:border-black"
                 />
                 {startDateLabel ? <span className="text-xs text-emerald-700">Inicio seleccionado: {startDateLabel}</span> : null}
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="text-black/60">Viajeros</span>
-                <input value={form.travelersSummary} onChange={(event) => updateField('travelersSummary', event.target.value)} placeholder="2 adultos, viaje tranquilo" className="rounded-lg border border-black/10 px-3 py-3 outline-none focus:border-black" />
-              </label>
-              <div className="grid gap-3 text-sm">
+                </label>
+                <div className="grid gap-3 text-sm">
+                  <span className="text-black/60">Viajeros</span>
+                  <div className="flex min-h-13 items-center justify-between rounded-lg border border-black/10 bg-stone-50 px-4 py-2.5">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-black">{formatTravelerSummary(form.travelerCount)}</div>
+                      <div className="text-xs text-black/50">Ajusta el total sin abrir otro panel.</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => updateField('travelerCount', Math.max(1, form.travelerCount - 1))}
+                        className="rounded-lg border border-black/10 bg-white p-2 text-black/70"
+                      >
+                        <Minus size={16} />
+                      </button>
+                      <div className="w-8 text-center text-sm font-semibold text-black">{form.travelerCount}</div>
+                      <button
+                        type="button"
+                        onClick={() => updateField('travelerCount', Math.min(20, form.travelerCount + 1))}
+                        className="rounded-lg border border-black/10 bg-white p-2 text-black/70"
+                      >
+                        <Plus size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid gap-3 text-sm">
                 <span className="text-black/60">Intensidad</span>
                 <div className="grid gap-2">
                   {intensityOptions.map((option) => {
@@ -212,8 +332,61 @@ export function CreateTripModal({
                     );
                   })}
                 </div>
-              </div>
-              <div className="grid gap-3 text-sm">
+                </div>
+                <div className="grid gap-3 text-sm md:col-span-2">
+                  <span className="text-black/60">Dónde dormirás</span>
+                  <div className="relative">
+                    <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-black/35" />
+                    <input
+                      value={lodgingQuery}
+                      onChange={(event) => {
+                        setLodgingQuery(event.target.value);
+                        setForm((prev) => ({...prev, addLodgingLater: false}));
+                      }}
+                      placeholder="Opcional: busca el hotel o alojamiento"
+                      className="w-full rounded-lg border border-black/10 px-10 py-3 outline-none focus:border-black"
+                    />
+                    {isSearchingLodging || isLoadingLodging ? <Loader2 size={16} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-black/45" /> : null}
+                  </div>
+                  {lodgingSuggestions.length > 0 ? (
+                    <div className="overflow-hidden rounded-xl border border-black/10 bg-white">
+                      {lodgingSuggestions.map((suggestion) => (
+                        <button
+                          key={suggestion.placeId}
+                          type="button"
+                          onClick={() => handleSelectLodging(suggestion)}
+                          className="flex w-full items-start gap-3 border-b border-black/5 px-4 py-3 text-left last:border-b-0 hover:bg-stone-50"
+                        >
+                          <MapPin size={15} className="mt-0.5 shrink-0 text-emerald-700" />
+                          <span className="min-w-0">
+                            <span className="block text-sm font-medium text-black">{suggestion.mainText}</span>
+                            {suggestion.secondaryText ? <span className="block text-xs text-black/55">{suggestion.secondaryText}</span> : null}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                  {form.lodgingName && !form.addLodgingLater ? (
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+                      <div className="font-medium">{form.lodgingName}</div>
+                      {form.lodgingAddress ? <div className="mt-1 text-xs text-emerald-800/80">{form.lodgingAddress}</div> : null}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-black/45">Opcional. Si lo dejas vacío, podrás añadirlo luego desde la configuración del viaje.</p>
+                  )}
+                  {lodgingSearchError ? <p className="text-sm text-red-600">{lodgingSearchError}</p> : null}
+                </div>
+                <label className="grid gap-1 text-sm md:col-span-2">
+                  <span className="text-black/60">Información adicional</span>
+                  <textarea
+                    value={form.additionalContext || ''}
+                    onChange={(event) => updateField('additionalContext', event.target.value)}
+                    rows={3}
+                    placeholder="Opcional: restricciones, preferencias, celebración especial, viaje con niños, presupuesto, etc."
+                    className="rounded-lg border border-black/10 px-3 py-3 outline-none focus:border-black"
+                  />
+                </label>
+                <div className="grid gap-3 text-sm md:col-span-2">
                 <span className="text-black/60">Intereses principales</span>
                 <div className="flex flex-wrap gap-2">
                   {suggestedInterests.map((interest) => {
@@ -270,20 +443,23 @@ export function CreateTripModal({
                   <p className="text-xs text-black/45">Selecciona intereses típicos o añade los tuyos.</p>
                 )}
               </div>
+              </div>
             </div>
 
-            {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
-            {isGenerating ? (
-              <div className="mt-4 rounded-lg border border-black/10 bg-stone-50 px-4 py-3 text-sm text-black/65">
-                {statusMessage}
-              </div>
-            ) : null}
+            <div className="border-t border-black/10 px-6 py-4">
+              {error ? <p className="text-sm text-red-600">{error}</p> : null}
+              {isGenerating ? (
+                <div className={`${error ? 'mt-3' : ''} rounded-lg border border-black/10 bg-stone-50 px-4 py-3 text-sm text-black/65`}>
+                  {statusMessage}
+                </div>
+              ) : null}
 
-            <div className="mt-6 flex justify-end">
+              <div className="mt-4 flex justify-end">
               <button onClick={handleSubmit} disabled={isGenerating} className="inline-flex items-center gap-2 rounded-lg bg-black px-4 py-3 text-sm font-medium text-white disabled:opacity-50">
                 {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <WandSparkles size={16} />}
                 Generar itinerario
               </button>
+              </div>
             </div>
           </motion.div>
         </>

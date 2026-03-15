@@ -18,9 +18,17 @@ export async function onRequestPost({request, env}: any) {
       return error;
     }
 
+    console.error('generate-trip failed', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+
     return new Response(
       JSON.stringify({
-        error: error instanceof Error ? error.message : 'Internal Server Error',
+        error:
+          error instanceof Error
+            ? error.message
+            : 'No se pudo generar el itinerario. Vuelve a intentarlo.',
       }),
       {
         status: 500,
