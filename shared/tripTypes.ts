@@ -2,6 +2,16 @@ export type StopType = 'hotel' | 'food' | 'sight' | 'event' | 'transport';
 export type TravelMode = 'walking' | 'transit' | 'driving';
 export type StopSource = 'generated' | 'manual' | 'places';
 export type TripIntensity = 'relax' | 'balanced' | 'active';
+export type MealType = 'lunch' | 'dinner';
+
+export interface Lodging {
+  name: string;
+  address: string;
+  coords: [number, number];
+  image?: string;
+  placeId?: string;
+  googleMapsUri?: string;
+}
 
 export interface Stop {
   id: string;
@@ -11,6 +21,9 @@ export interface Stop {
   coords: [number, number];
   type: StopType;
   completed?: boolean;
+  requiresBooking?: boolean;
+  isLodging?: boolean;
+  mealType?: MealType;
   image?: string;
   bookingLink?: string;
   source?: StopSource;
@@ -34,6 +47,8 @@ export interface Trip {
   endDate: string;
   travelersSummary: string;
   interests: string[];
+  intensity: TripIntensity;
+  lodging?: Lodging;
   status: 'draft' | 'ready';
   createdAt: string;
   updatedAt: string;
@@ -49,6 +64,8 @@ export interface TripSummary {
   startDate: string;
   endDate: string;
   status: 'draft' | 'ready';
+  intensity: TripIntensity;
+  lodging?: Lodging;
   createdAt: string;
   updatedAt: string;
   dayCount: number;
@@ -63,6 +80,8 @@ export interface StopDraft {
   lng: string;
   type: StopType;
   completed: boolean;
+  requiresBooking: boolean;
+  isLodging: boolean;
   image: string;
   bookingLink: string;
   source?: StopSource;
@@ -73,9 +92,19 @@ export interface CreateTripInput {
   countryOrRegion: string;
   startDate: string;
   endDate: string;
+  travelerCount: number;
   travelersSummary: string;
   interests: string;
   intensity: TripIntensity;
+  additionalContext?: string;
+  lodgingName?: string;
+  lodgingAddress?: string;
+  lodgingLat?: string;
+  lodgingLng?: string;
+  lodgingPlaceId?: string;
+  lodgingImage?: string;
+  lodgingGoogleMapsUri?: string;
+  addLodgingLater?: boolean;
 }
 
 export interface PlaceSuggestion {

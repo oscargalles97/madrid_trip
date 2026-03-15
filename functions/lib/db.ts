@@ -22,6 +22,8 @@ const schemaSql = [
       end_date TEXT NOT NULL,
       travelers_summary TEXT NOT NULL,
       interests_json TEXT NOT NULL,
+      intensity TEXT NOT NULL DEFAULT 'balanced',
+      lodging_json TEXT,
       status TEXT NOT NULL,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
@@ -46,6 +48,9 @@ const schemaSql = [
       lng REAL NOT NULL,
       type TEXT NOT NULL,
       completed INTEGER NOT NULL DEFAULT 0,
+      requires_booking INTEGER NOT NULL DEFAULT 0,
+      is_lodging INTEGER NOT NULL DEFAULT 0,
+      meal_type TEXT,
       image TEXT,
       booking_link TEXT,
       source TEXT,
@@ -75,7 +80,32 @@ export async function ensureSchema(env: any) {
     // Column already exists.
   }
   try {
+    await db.prepare("ALTER TABLE trips ADD COLUMN intensity TEXT NOT NULL DEFAULT 'balanced'").bind().run();
+  } catch {
+    // Column already exists.
+  }
+  try {
+    await db.prepare('ALTER TABLE trips ADD COLUMN lodging_json TEXT').bind().run();
+  } catch {
+    // Column already exists.
+  }
+  try {
     await db.prepare('ALTER TABLE stops ADD COLUMN completed INTEGER NOT NULL DEFAULT 0').bind().run();
+  } catch {
+    // Column already exists.
+  }
+  try {
+    await db.prepare('ALTER TABLE stops ADD COLUMN requires_booking INTEGER NOT NULL DEFAULT 0').bind().run();
+  } catch {
+    // Column already exists.
+  }
+  try {
+    await db.prepare('ALTER TABLE stops ADD COLUMN is_lodging INTEGER NOT NULL DEFAULT 0').bind().run();
+  } catch {
+    // Column already exists.
+  }
+  try {
+    await db.prepare('ALTER TABLE stops ADD COLUMN meal_type TEXT').bind().run();
   } catch {
     // Column already exists.
   }
@@ -106,6 +136,8 @@ export async function listTrips(env: any): Promise<TripSummary[]> {
         trips.start_date as startDate,
         trips.end_date as endDate,
         trips.status,
+        trips.intensity,
+        trips.lodging_json as lodgingJson,
         trips.created_at as createdAt,
         trips.updated_at as updatedAt,
         COUNT(trip_days.id) as dayCount
@@ -116,8 +148,11 @@ export async function listTrips(env: any): Promise<TripSummary[]> {
     )
     .bind()
     .all<TripSummary>();
-
-  return results.map((row) => ({...row, dayCount: Number(row.dayCount)}));
+  return results.map((row: any) => ({
+    ...row,
+    lodging: row.lodgingJson ? JSON.parse(row.lodgingJson) : undefined,
+    dayCount: Number(row.dayCount),
+  }));
 }
 
 export async function getTrip(env: any, tripId: string): Promise<Trip | null> {
@@ -136,6 +171,8 @@ export async function getTrip(env: any, tripId: string): Promise<Trip | null> {
         end_date as endDate,
         travelers_summary as travelersSummary,
         interests_json as interestsJson,
+        intensity,
+        lodging_json as lodgingJson,
         status,
         created_at as createdAt,
         updated_at as updatedAt
@@ -173,6 +210,9 @@ export async function getTrip(env: any, tripId: string): Promise<Trip | null> {
           lng,
           type,
           completed,
+          requires_booking as requiresBooking,
+          is_lodging as isLodging,
+          meal_type as mealType,
           image,
           booking_link as bookingLink,
           source
@@ -197,6 +237,9 @@ export async function getTrip(env: any, tripId: string): Promise<Trip | null> {
           coords: [Number(stopRow.lat), Number(stopRow.lng)],
           type: stopRow.type,
           completed: Boolean(stopRow.completed),
+          requiresBooking: Boolean(stopRow.requiresBooking),
+          isLodging: Boolean(stopRow.isLodging),
+          mealType: stopRow.mealType || undefined,
           image: stopRow.image || undefined,
           bookingLink: stopRow.bookingLink || undefined,
           source: stopRow.source || undefined,
@@ -215,6 +258,8 @@ export async function getTrip(env: any, tripId: string): Promise<Trip | null> {
     endDate: tripRow.endDate,
     travelersSummary: tripRow.travelersSummary,
     interests: JSON.parse(tripRow.interestsJson),
+    intensity: tripRow.intensity ?? 'balanced',
+    lodging: tripRow.lodgingJson ? JSON.parse(tripRow.lodgingJson) : undefined,
     status: tripRow.status,
     createdAt: tripRow.createdAt,
     updatedAt: tripRow.updatedAt,
@@ -229,8 +274,8 @@ export async function saveTrip(env: any, trip: Trip) {
   await db
     .prepare(
       `INSERT OR REPLACE INTO trips
-       (id, title, destination, country_or_region, hero_image_url, start_date, end_date, travelers_summary, interests_json, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, title, destination, country_or_region, hero_image_url, start_date, end_date, travelers_summary, interests_json, intensity, lodging_json, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       trip.id,
@@ -242,6 +287,8 @@ export async function saveTrip(env: any, trip: Trip) {
       trip.endDate,
       trip.travelersSummary,
       JSON.stringify(trip.interests),
+      trip.intensity,
+      trip.lodging ? JSON.stringify(trip.lodging) : null,
       trip.status,
       trip.createdAt,
       trip.updatedAt,
@@ -268,8 +315,8 @@ export async function saveTrip(env: any, trip: Trip) {
       await db
         .prepare(
           `INSERT INTO stops
-           (id, day_id, stop_index, name, time, description, lat, lng, type, completed, image, booking_link, source)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (id, day_id, stop_index, name, time, description, lat, lng, type, completed, requires_booking, is_lodging, meal_type, image, booking_link, source)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .bind(
           stop.id,
@@ -282,6 +329,9 @@ export async function saveTrip(env: any, trip: Trip) {
           stop.coords[1],
           stop.type,
           stop.completed ? 1 : 0,
+          stop.requiresBooking ? 1 : 0,
+          stop.isLodging ? 1 : 0,
+          stop.mealType ?? null,
           stop.image ?? null,
           stop.bookingLink ?? null,
           stop.source ?? null,

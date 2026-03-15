@@ -31,9 +31,12 @@ import {MapPanel} from './MapPanel';
 import {RouteModeDialog} from './RouteModeDialog';
 import {StopForm} from './StopForm';
 import {HeroImageModal} from './HeroImageModal';
+import {LodgingSettingsPanel} from './LodgingSettingsPanel';
+import {StopMobileMenu} from './StopMobileMenu';
 import {draftFromStop, emptyStopDraft, stopFromDraft, typeLabel} from '../itineraryData';
 import {sendTripChat} from '../lib/api';
-import type {Stop, StopDraft, StopType, TravelMode, Trip} from '../types';
+import {applyLodgingToTrip} from '../../shared/tripUtils';
+import type {Lodging, Stop, StopDraft, StopType, TravelMode, Trip} from '../types';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -97,6 +100,8 @@ export function TripEditor({
   const [isTyping, setIsTyping] = useState(false);
   const [chatError, setChatError] = useState('');
   const [isHeroImageModalOpen, setIsHeroImageModalOpen] = useState(false);
+  const [isLodgingPanelOpen, setIsLodgingPanelOpen] = useState(false);
+  const [isMobileLayout, setIsMobileLayout] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -127,6 +132,14 @@ export function TripEditor({
     const timeout = window.setTimeout(() => setShouldFollowLocation(false), 1200);
     return () => window.clearTimeout(timeout);
   }, [shouldFollowLocation]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 767px), (pointer: coarse)');
+    const sync = () => setIsMobileLayout(mediaQuery.matches);
+    sync();
+    mediaQuery.addEventListener?.('change', sync);
+    return () => mediaQuery.removeEventListener?.('change', sync);
+  }, []);
 
   const currentDay = localTrip.days[activeDay];
 
@@ -221,6 +234,22 @@ export function TripEditor({
     }));
   };
 
+  const moveStopByOffset = (stopId: string, offset: -1 | 1) => {
+    updateTrip((current) => ({
+      ...current,
+      days: current.days.map((day, dayIndex) => {
+        if (dayIndex !== activeDay) return day;
+        const sourceIndex = day.stops.findIndex((stop) => stop.id === stopId);
+        const targetIndex = sourceIndex + offset;
+        if (sourceIndex < 0 || targetIndex < 0 || targetIndex >= day.stops.length) return day;
+        const nextStops = [...day.stops];
+        const [item] = nextStops.splice(sourceIndex, 1);
+        nextStops.splice(targetIndex, 0, item);
+        return {...day, stops: nextStops};
+      }),
+    }));
+  };
+
   const moveStopToDay = (stopId: string, fromDayIndex: number, targetDayIndex: number) => {
     if (fromDayIndex === targetDayIndex) return;
 
@@ -274,6 +303,11 @@ export function TripEditor({
           : day,
       ),
     }));
+  };
+
+  const handleLodgingChange = (lodging?: Lodging) => {
+    updateTrip((current) => applyLodgingToTrip({...current, lodging}));
+    setIsLodgingPanelOpen(false);
   };
 
   const requestCurrentLocation = () => {
@@ -352,6 +386,10 @@ export function TripEditor({
           </div>
 
           <div className="flex items-center gap-3">
+            <button onClick={() => setIsLodgingPanelOpen((current) => !current)} className={cn('inline-flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium', localTrip.heroImageUrl ? 'border border-white/20 bg-white/10 text-white backdrop-blur' : 'border border-black/10 bg-white text-black/70')}>
+              <Hotel size={16} />
+              {localTrip.lodging ? 'Editar alojamiento' : 'Añadir alojamiento'}
+            </button>
             <button onClick={() => setIsHeroImageModalOpen(true)} className={cn('inline-flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium', localTrip.heroImageUrl ? 'border border-white/20 bg-white/10 text-white backdrop-blur' : 'border border-black/10 bg-white text-black/70')}>
               <Camera size={16} />
               Editar portada
@@ -368,6 +406,11 @@ export function TripEditor({
       <main className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-6 md:px-6 lg:grid-cols-[1.1fr_1fr] lg:px-10">
         <section className="min-w-0 rounded-xl border border-black/10 bg-white shadow-sm">
           <div className="border-b border-black/10 px-5 py-4">
+            {isLodgingPanelOpen ? (
+              <div className="mb-4">
+                <LodgingSettingsPanel password={password} lodging={localTrip.lodging} onClose={() => setIsLodgingPanelOpen(false)} onSave={handleLodgingChange} />
+              </div>
+            ) : null}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm text-black/45">Días del viaje</p>
@@ -385,6 +428,7 @@ export function TripEditor({
                 <button
                   key={day.id}
                   onDragOver={(event) => {
+                    if (isMobileLayout) return;
                     if (!draggedStopId || draggedFromDayIndex == null || index === draggedFromDayIndex) return;
                     event.preventDefault();
                     setDropTargetDayIndex(index);
@@ -395,6 +439,7 @@ export function TripEditor({
                     }
                   }}
                   onDrop={(event) => {
+                    if (isMobileLayout) return;
                     if (!draggedStopId || draggedFromDayIndex == null || index === draggedFromDayIndex) return;
                     event.preventDefault();
                     moveStopToDay(draggedStopId, draggedFromDayIndex, index);
@@ -442,19 +487,22 @@ export function TripEditor({
                 return (
                   <article
                     key={stop.id}
-                    draggable={!isEditing}
+                    draggable={!isEditing && !isMobileLayout}
                     onDragStart={() => {
+                      if (isMobileLayout) return;
                       setDraggedStopId(stop.id);
                       setDraggedFromDayIndex(activeDay);
                       setDropTargetStopId(stop.id);
                     }}
                     onDragOver={(event) => {
+                      if (isMobileLayout) return;
                       event.preventDefault();
                       if (draggedStopId && draggedStopId !== stop.id) {
                         setDropTargetStopId(stop.id);
                       }
                     }}
                     onDrop={(event) => {
+                      if (isMobileLayout) return;
                       event.preventDefault();
                       if (draggedStopId) {
                         moveStopToIndex(draggedStopId, stop.id);
@@ -478,7 +526,7 @@ export function TripEditor({
                   >
                     <div className="flex items-start gap-4">
                       <div className="flex min-w-[44px] flex-col items-center gap-2">
-                        <div className="cursor-grab rounded-lg border border-black/10 bg-white p-2 text-black/40 active:cursor-grabbing">
+                        <div className="hidden cursor-grab rounded-lg border border-black/10 bg-white p-2 text-black/40 active:cursor-grabbing md:block">
                           <GripVertical size={14} />
                         </div>
                         <button
@@ -511,12 +559,26 @@ export function TripEditor({
                             </p>
                           </div>
                           <div className="flex flex-wrap gap-2">
+                            <div className="hidden gap-2 md:flex">
                             <button onClick={() => startEditStop(stop)} className="rounded-lg border border-black/10 bg-white p-2 text-black/65">
                               <Pencil size={15} />
                             </button>
                             <button onClick={() => deleteStop(stop.id)} className="rounded-lg border border-red-200 bg-red-50 p-2 text-red-600">
                               <Trash2 size={15} />
                             </button>
+                            </div>
+                            <StopMobileMenu
+                              stopName={stop.name}
+                              isCompleted={isCompleted}
+                              currentDayIndex={activeDay}
+                              days={localTrip.days}
+                              onToggleCompleted={() => toggleStopCompleted(stop.id)}
+                              onEdit={() => startEditStop(stop)}
+                              onDelete={() => deleteStop(stop.id)}
+                              onMoveUp={() => moveStopByOffset(stop.id, -1)}
+                              onMoveDown={() => moveStopByOffset(stop.id, 1)}
+                              onMoveToDay={(targetDayIndex) => moveStopToDay(stop.id, activeDay, targetDayIndex)}
+                            />
                           </div>
                         </div>
 
@@ -539,7 +601,7 @@ export function TripEditor({
                             <ExternalLink size={14} />
                             Ver en Maps
                           </button>
-                          {stop.bookingLink ? (
+                          {stop.requiresBooking && stop.bookingLink ? (
                             <a href={stop.bookingLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2 text-sm text-black/70">
                               <Ticket size={14} />
                               Enlace

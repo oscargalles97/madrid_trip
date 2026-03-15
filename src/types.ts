@@ -1,5 +1,7 @@
 export type {
   CreateTripInput,
+  Lodging,
+  MealType,
   PlaceSuggestion,
   Stop,
   StopDraft,

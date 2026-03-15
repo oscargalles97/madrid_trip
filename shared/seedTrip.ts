@@ -7,6 +7,8 @@ export const createId = () =>
 
 const makeStop = (stop: Omit<Stop, 'id'>): Stop => ({
   completed: false,
+  requiresBooking: false,
+  isLodging: false,
   ...stop,
   id: createId(),
 });
@@ -30,6 +32,7 @@ export const buildSampleMadridTrip = (): Trip => {
     endDate: '2026-03-15',
     travelersSummary: '2 adultos',
     interests: ['centro histórico', 'gastronomía', 'miradores', 'musicales'],
+    intensity: 'balanced',
     status: 'ready',
     createdAt: now,
     updatedAt: now,

@@ -3,7 +3,7 @@ import {CreateTripModal} from './components/CreateTripModal';
 import {LoginScreen} from './components/LoginScreen';
 import {TripEditor} from './components/TripEditor';
 import {TripsHome} from './components/TripsHome';
-import {SESSION_KEY} from './itineraryData';
+import {SESSION_KEY, summarizeTrip} from './itineraryData';
 import {deleteTrip, fetchTrip, fetchTrips, generateTrip, saveTrip, verifyPassword} from './lib/api';
 import type {Trip, TripSummary} from './types';
 
@@ -94,21 +94,7 @@ export default function App() {
       const data = await generateTrip(sessionPassword, input);
       window.clearTimeout(progressTimeout);
       setSelectedTrip(data.trip);
-      setTrips((current) => [
-        {
-          id: data.trip.id,
-          title: data.trip.title,
-          destination: data.trip.destination,
-          countryOrRegion: data.trip.countryOrRegion,
-          startDate: data.trip.startDate,
-          endDate: data.trip.endDate,
-          status: data.trip.status,
-          createdAt: data.trip.createdAt,
-          updatedAt: data.trip.updatedAt,
-          dayCount: data.trip.days.length,
-        },
-        ...current,
-      ]);
+      setTrips((current) => [summarizeTrip(data.trip), ...current]);
       setIsCreateModalOpen(false);
       setGenerationStatus('');
     } catch (error) {
@@ -125,16 +111,7 @@ export default function App() {
     setTrips((current) =>
       current.map((trip) =>
         trip.id === nextTrip.id
-          ? {
-              ...trip,
-              title: nextTrip.title,
-              destination: nextTrip.destination,
-              countryOrRegion: nextTrip.countryOrRegion,
-              startDate: nextTrip.startDate,
-              endDate: nextTrip.endDate,
-              updatedAt: nextTrip.updatedAt,
-              dayCount: nextTrip.days.length,
-            }
+          ? summarizeTrip(nextTrip)
           : trip,
       ),
     );
@@ -165,7 +142,14 @@ export default function App() {
   return (
     <>
       <TripsHome trips={trips} isLoading={isLoadingTrips || isLoadingTrip} onCreate={() => setIsCreateModalOpen(true)} onOpen={handleOpenTrip} onDelete={handleDeleteTrip} />
-      <CreateTripModal isOpen={isCreateModalOpen} isGenerating={isGeneratingTrip} statusMessage={generationStatus} onClose={() => setIsCreateModalOpen(false)} onGenerate={handleGenerateTrip} />
+      <CreateTripModal
+        isOpen={isCreateModalOpen}
+        isGenerating={isGeneratingTrip}
+        statusMessage={generationStatus}
+        password={sessionPassword}
+        onClose={() => setIsCreateModalOpen(false)}
+        onGenerate={handleGenerateTrip}
+      />
       {authError ? (
         <div className="fixed bottom-4 left-1/2 z-[1400] -translate-x-1/2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
           {authError}

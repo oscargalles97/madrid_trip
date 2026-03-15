@@ -19,6 +19,25 @@ export function inferStopType(primaryType?: string) {
   return 'sight';
 }
 
+async function getPhotoUri(photoName: string, apiKey: string, maxWidthPx = 1200) {
+  const photoResponse = await fetch(
+    `${GOOGLE_PLACES_BASE_URL}/${photoName}/media?maxWidthPx=${maxWidthPx}&skipHttpRedirect=true`,
+    {
+      method: 'GET',
+      headers: {
+        'X-Goog-Api-Key': apiKey,
+      },
+    },
+  );
+
+  if (!photoResponse.ok) {
+    throw new Error(await photoResponse.text());
+  }
+
+  const photoData = await photoResponse.json();
+  return photoData.photoUri || '';
+}
+
 export async function autocompletePlace(query: string, env: PlacesEnv) {
   const apiKey = getApiKey(env);
   if (!apiKey) {
@@ -69,7 +88,7 @@ export async function getPlaceDetails(placeId: string, env: PlacesEnv) {
     headers: {
       'Content-Type': 'application/json',
       'X-Goog-Api-Key': apiKey,
-      'X-Goog-FieldMask': 'displayName,formattedAddress,location,primaryType,googleMapsUri',
+      'X-Goog-FieldMask': 'id,displayName,formattedAddress,location,primaryType,googleMapsUri,photos',
     },
   });
 
@@ -78,12 +97,16 @@ export async function getPlaceDetails(placeId: string, env: PlacesEnv) {
   }
 
   const data = await response.json();
+  const image = data.photos?.[0]?.name ? await getPhotoUri(data.photos[0].name, apiKey) : '';
   return {
+    placeId: data.id || placeId,
     name: data.displayName?.text || '',
     description: data.formattedAddress || '',
     lat: data.location?.latitude ?? null,
     lng: data.location?.longitude ?? null,
     type: inferStopType(data.primaryType),
+    image,
+    googleMapsUri: data.googleMapsUri || '',
     bookingLink: data.googleMapsUri || '',
   };
 }
@@ -102,6 +125,8 @@ export async function searchPlaces(query: string, destination: string, env: Plac
         lat: details.lat,
         lng: details.lng,
         type: details.type,
+        image: details.image,
+        googleMapsUri: details.googleMapsUri,
         bookingLink: details.bookingLink,
       });
     } catch {
@@ -141,20 +166,5 @@ export async function searchDestinationImage(destination: string, countryOrRegio
     return '';
   }
 
-  const photoResponse = await fetch(
-    `${GOOGLE_PLACES_BASE_URL}/${photoName}/media?maxWidthPx=1600&skipHttpRedirect=true`,
-    {
-      method: 'GET',
-      headers: {
-        'X-Goog-Api-Key': apiKey,
-      },
-    },
-  );
-
-  if (!photoResponse.ok) {
-    throw new Error(await photoResponse.text());
-  }
-
-  const photoData = await photoResponse.json();
-  return photoData.photoUri || '';
+  return getPhotoUri(photoName, apiKey, 1600);
 }
